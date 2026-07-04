@@ -1,0 +1,589 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <locale.h>
+#include <unistd.h>
+#include <ctype.h>
+
+#define max 50
+
+// Variáveis Globais
+int op = 0, sop = 0, ida = 0, idc = 0, idt = 0, idm = 0;
+char resp;
+
+struct aluno {
+    char pk_cpf[15];
+    char nome[max];
+    char admissao[11];
+    char dtNasc[11];
+    char escolaridade[max];
+};
+
+struct curso {
+    int pk_codCurso;
+    char nome[max];
+    int cargaHoraria;
+    char modalidade[20];
+};
+
+struct turma {
+    int pk_codTurma;
+    char nomeTurma[max];
+    int qtdAlunos;
+    char turno[20];
+};
+
+struct matricula {
+    int pk_ra;
+    char fk_cpf[15];
+    int fk_codTurma;
+    int fk_codCurso;
+};
+
+// Vetores de armazenamento
+struct aluno tbaluno[max];
+struct curso tbcurso[max];
+struct turma tbturma[max];
+struct matricula tbmatricula[max];
+
+// ============================================================================
+// FUNÇÕES DE VALIDAÇÃO
+// ============================================================================
+int validarCPF(char cpf[]) {
+    if (strlen(cpf) != 14) return 0;
+    if (cpf[3] != '.' || cpf[7] != '.' || cpf[11] != '-') return 0;
+    return 1;
+}
+
+int validarData(char data[]) {
+    if (strlen(data) != 10) return 0;
+    if (data[2] != '/' || data[5] != '/') return 0;
+    return 1;
+}
+
+void limparBuffer() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+
+// ============================================================================
+// FUNÇÕES DE BUSCA (Retornam o índice no vetor ou -1 se não encontrar)
+// ============================================================================
+int obter_idx_aluno(char cpf[15]) {
+    for (int i = 0; i < ida; i++) {
+        if (strcmp(tbaluno[i].pk_cpf, cpf) == 0) return i;
+    }
+    return -1;
+}
+
+int obter_idx_curso(int codCurso) {
+    for (int i = 0; i < idc; i++) {
+        if (tbcurso[i].pk_codCurso == codCurso) return i;
+    }
+    return -1;
+}
+
+int obter_idx_turma(int codTurma) {
+    for (int i = 0; i < idt; i++) {
+        if (tbturma[i].pk_codTurma == codTurma) return i;
+    }
+    return -1;
+}
+
+int obter_idx_matricula(int ra) {
+    for (int i = 0; i < idm; i++) {
+        if (tbmatricula[i].pk_ra == ra) return i;
+    }
+    return -1;
+}
+
+// ============================================================================
+// FUNÇÕES DE VERIFICAÇÃO DE CHAVE ESTRANGEIRA (Para Exclusão)
+// ============================================================================
+bool matricula_vinculada_aluno(char cpf[]) {
+    for (int i = 0; i < idm; i++) {
+        if (strcmp(tbmatricula[i].fk_cpf, cpf) == 0) return true;
+    }
+    return false;
+}
+
+bool matricula_vinculada_curso(int codCurso) {
+    for (int i = 0; i < idm; i++) {
+        if (tbmatricula[i].fk_codCurso == codCurso) return true;
+    }
+    return false;
+}
+
+bool matricula_vinculada_turma(int codTurma) {
+    for (int i = 0; i < idm; i++) {
+        if (tbmatricula[i].fk_codTurma == codTurma) return true;
+    }
+    return false;
+}
+
+// ============================================================================
+// MENUS
+// ============================================================================
+void subMenu() {
+    printf("*************\n");
+    printf("* SUBMENU              *\n");
+    printf("*************\n");
+    printf("* 1 - ALUNO                     *\n");
+    printf("* 2 - CURSO                     *\n");
+    printf("* 3 - TURMA                     *\n");
+    printf("* 4 - MATRICULA                 *\n");
+    printf("* 5 - RETORNAR                  *\n");
+    printf("*************\n\n");
+    printf("Escolha a opção desejada: ");
+}
+
+void menu() {
+    printf("*************\n");
+    printf("* MENU PRINCIPAL          *\n");
+    printf("*************\n");
+    printf("* 1 - CADASTRAR                 *\n");
+    printf("* 2 - CONSULTAR                 *\n");
+    printf("* 3 - ALTERAR                   *\n");
+    printf("* 4 - EXCLUIR                   *\n");
+    printf("* 5 - ORDENAR                   *\n");
+    printf("* 6 - IMPRIMIR RELATÓRIOS       *\n");
+    printf("* 7 - FINALIZAR                 *\n");
+    printf("*************\n\n");
+    printf("Escolha a opção desejada: ");
+}
+
+// ============================================================================
+// OPERAÇÕES CRUD
+// ============================================================================
+
+void cadastrar(int sop) {
+    switch (sop) {
+        case 1: // ALUNO
+            do {
+                if(ida >= max) { printf("Limite atingido!\n"); break; }
+                struct aluno a;
+                do {
+                    printf("\nExemplo: 000.000.000-00\nCPF: ");
+                    scanf(" %14[^\n]", a.pk_cpf);
+                    if (!validarCPF(a.pk_cpf)) {
+                        printf("Formato de CPF invalido!\n");
+                    } else if (obter_idx_aluno(a.pk_cpf) != -1) {
+                        printf("CPF ja cadastrado!\n");
+                    } else break;
+                } while (true);
+                
+                limparBuffer();
+                printf("Nome do Aluno: ");
+                scanf(" %49[^\n]", a.nome);
+                
+                do {
+                    printf("Admissão (DD/MM/AAAA): ");
+                    scanf(" %10[^\n]", a.admissao);
+                    if(!validarData(a.admissao)) printf("Formato invalido!\n");
+                } while (!validarData(a.admissao));
+                
+                do {
+                    printf("Data de Nascimento (DD/MM/AAAA): ");
+                    scanf(" %10[^\n]", a.dtNasc);
+                    if(!validarData(a.dtNasc)) printf("Formato invalido!\n");
+                } while (!validarData(a.dtNasc));
+                
+                limparBuffer();
+                printf("Escolaridade: ");
+                scanf(" %49[^\n]", a.escolaridade);
+                
+                tbaluno[ida++] = a;
+                printf("\nDeseja continuar cadastrando [s/n]: ");
+                scanf(" %c", &resp);
+            } while (tolower(resp) == 's');
+            break;
+
+        case 2: // CURSO
+            do {
+                if(idc >= max) { printf("Limite atingido!\n"); break; }
+                struct curso c;
+                do {
+                    printf("\nCódigo do Curso: ");
+                    scanf("%d", &c.pk_codCurso);
+                    if (obter_idx_curso(c.pk_codCurso) != -1) {
+                        printf("Código ja cadastrado!\n");
+                    } else break;
+                } while (true);
+                
+                limparBuffer();
+                printf("Nome do Curso: ");
+                scanf(" %49[^\n]", c.nome);
+                printf("Carga Horaria: ");
+                scanf("%d", &c.cargaHoraria);
+                printf("Modalidade: ");
+                scanf(" %19[^\n]", c.modalidade);
+                
+                tbcurso[idc++] = c;
+                printf("\nDeseja continuar cadastrando [s/n]: ");
+                scanf(" %c", &resp);
+            } while (tolower(resp) == 's');
+            break;
+
+        case 3: // TURMA
+            do {
+                if(idt >= max) { printf("Limite atingido!\n"); break; }
+                struct turma t;
+                do {
+                    printf("\nCódigo da Turma: ");
+                    scanf("%d", &t.pk_codTurma);
+                    if (obter_idx_turma(t.pk_codTurma) != -1) {
+                        printf("Código ja cadastrado!\n");
+                    } else break;
+                } while (true);
+                
+                limparBuffer();
+                printf("Nome da Turma: ");
+                scanf(" %49[^\n]", t.nomeTurma);
+                printf("Quantidade de Alunos: ");
+                scanf("%d", &t.qtdAlunos);
+                printf("Turno: ");
+                scanf(" %19[^\n]", t.turno);
+                
+                tbturma[idt++] = t;
+                printf("\nDeseja continuar cadastrando [s/n]: ");
+                scanf(" %c", &resp);
+            } while (tolower(resp) == 's');
+            break;
+
+        case 4: // MATRICULA
+            if (ida > 0 && idc > 0 && idt > 0) {
+                do {
+                    if(idm >= max) { printf("Limite atingido!\n"); break; }
+                    struct matricula m;
+                    do {
+                        printf("\nRA da Matrícula: ");
+                        scanf("%d", &m.pk_ra);
+                        if (obter_idx_matricula(m.pk_ra) != -1) {
+                            printf("RA ja cadastrado!\n");
+                        } else break;
+                    } while (true);
+                    
+                    do {
+                        printf("CPF do Aluno (000.000.000-00): ");
+                        scanf(" %14[^\n]", m.fk_cpf);
+                        if (obter_idx_aluno(m.fk_cpf) == -1) {
+                            printf("Erro: CPF nao cadastrado no sistema!\n");
+                        } else break;
+                    } while (true);
+                    
+                    do {
+                        printf("Código do Curso: ");
+                        scanf("%d", &m.fk_codCurso);
+                        if (obter_idx_curso(m.fk_codCurso) == -1) {
+                            printf("Erro: Curso nao encontrado!\n");
+                        } else break;
+                    } while (true);
+                    
+                    do {
+                        printf("Código da Turma: ");
+                        scanf("%d", &m.fk_codTurma);
+                        if (obter_idx_turma(m.fk_codTurma) == -1) {
+                            printf("Erro: Turma nao encontrada!\n");
+                        } else break;
+                    } while (true);
+                    
+                    tbmatricula[idm++] = m;
+                    printf("\nDeseja continuar cadastrando [s/n]: ");
+                    scanf(" %c", &resp);
+                } while (tolower(resp) == 's');
+            } else {
+                printf("\nErro: E necessario cadastrar ao menos 1 aluno, 1 curso e 1 turma antes de realizar matrículas.\n");
+                sleep(3);
+            }
+            break;
+    }
+}
+
+void consultar(int sop) {
+    char buscaCpf[15];
+    int buscaId;
+    int idx;
+    
+    printf("\n");
+    switch(sop) {
+        case 1:
+            printf("Digite o CPF do aluno: ");
+            scanf(" %14[^\n]", buscaCpf);
+            idx = obter_idx_aluno(buscaCpf);
+            if(idx != -1) {
+                printf("\n--- DADOS DO ALUNO ---\n");
+                printf("Nome: %s\nNascimento: %s\nAdmissão: %s\nEscolaridade: %s\n", 
+                        tbaluno[idx].nome, tbaluno[idx].dtNasc, tbaluno[idx].admissao, tbaluno[idx].escolaridade);
+            } else { printf("Aluno nao encontrado.\n"); }
+            break;
+        case 2:
+            printf("Digite o Codigo do Curso: ");
+            scanf("%d", &buscaId);
+            idx = obter_idx_curso(buscaId);
+            if(idx != -1) {
+                printf("\n--- DADOS DO CURSO ---\n");
+                printf("Nome: %s\nCarga Horaria: %d\nModalidade: %s\n", 
+                        tbcurso[idx].nome, tbcurso[idx].cargaHoraria, tbcurso[idx].modalidade);
+            } else { printf("Curso nao encontrado.\n"); }
+            break;
+        case 3:
+            printf("Digite o Codigo da Turma: ");
+            scanf("%d", &buscaId);
+            idx = obter_idx_turma(buscaId);
+            if(idx != -1) {
+                printf("\n--- DADOS DA TURMA ---\n");
+                printf("Nome: %s\nQtd Alunos: %d\nTurno: %s\n", 
+                        tbturma[idx].nomeTurma, tbturma[idx].qtdAlunos, tbturma[idx].turno);
+            } else { printf("Turma nao encontrada.\n"); }
+            break;
+        case 4: // CONSULTA CRUZADA BÔNUS
+            printf("Digite o RA da Matricula: ");
+            scanf("%d", &buscaId);
+            idx = obter_idx_matricula(buscaId);
+            if(idx != -1) {
+                int idA = obter_idx_aluno(tbmatricula[idx].fk_cpf);
+                int idC = obter_idx_curso(tbmatricula[idx].fk_codCurso);
+                int idT = obter_idx_turma(tbmatricula[idx].fk_codTurma);
+                
+                printf("\n--- CONSULTA CRUZADA DE MATRICULA ---\n");
+                printf("RA: %d\n", tbmatricula[idx].pk_ra);
+                printf("Aluno: %s (CPF: %s)\n", idA != -1 ? tbaluno[idA].nome : "Desconhecido", tbmatricula[idx].fk_cpf);
+                printf("Curso: %s (Cod: %d)\n", idC != -1 ? tbcurso[idC].nome : "Desconhecido", tbmatricula[idx].fk_codCurso);
+                printf("Turma: %s (Cod: %d)\n", idT != -1 ? tbturma[idT].nomeTurma : "Desconhecida", tbmatricula[idx].fk_codTurma);
+            } else { printf("Matricula nao encontrada.\n"); }
+            break;
+    }
+    printf("\nPressione Enter para continuar...");
+    limparBuffer(); getchar();
+}
+
+void alterar(int sop) {
+    char buscaCpf[15];
+    int buscaId, idx;
+    
+    printf("\n");
+    switch(sop) {
+        case 1:
+            printf("Digite o CPF do aluno que deseja alterar: ");
+            scanf(" %14[^\n]", buscaCpf);
+            idx = obter_idx_aluno(buscaCpf);
+            if(idx != -1) {
+                printf("Novo Nome: "); scanf(" %49[^\n]", tbaluno[idx].nome);
+                printf("Nova Admissão (DD/MM/AAAA): "); scanf(" %10[^\n]", tbaluno[idx].admissao);
+                printf("Nova Data Nasc (DD/MM/AAAA): "); scanf(" %10[^\n]", tbaluno[idx].dtNasc);
+                printf("Nova Escolaridade: "); scanf(" %49[^\n]", tbaluno[idx].escolaridade);
+                printf("Dados alterados com sucesso!\n");
+            } else { printf("Aluno nao encontrado.\n"); }
+            break;
+        case 2:
+            printf("Digite o Codigo do Curso a alterar: ");
+            scanf("%d", &buscaId);
+            idx = obter_idx_curso(buscaId);
+            if(idx != -1) {
+                printf("Novo Nome do Curso: "); scanf(" %49[^\n]", tbcurso[idx].nome);
+                printf("Nova Carga Horaria: "); scanf("%d", &tbcurso[idx].cargaHoraria);
+                printf("Nova Modalidade: "); scanf(" %19[^\n]", tbcurso[idx].modalidade);
+                printf("Dados alterados com sucesso!\n");
+            } else { printf("Curso nao encontrado.\n"); }
+            break;
+        case 3:
+            printf("Digite o Codigo da Turma a alterar: ");
+            scanf("%d", &buscaId);
+            idx = obter_idx_turma(buscaId);
+            if(idx != -1) {
+                printf("Novo Nome: "); scanf(" %49[^\n]", tbturma[idx].nomeTurma);
+                printf("Nova Qtd Alunos: "); scanf("%d", &tbturma[idx].qtdAlunos);
+                printf("Novo Turno: "); scanf(" %19[^\n]", tbturma[idx].turno);
+                printf("Dados alterados com sucesso!\n");
+            } else { printf("Turma nao encontrada.\n"); }
+            break;
+        case 4:
+            printf("Digite o RA da Matricula a alterar: ");
+            scanf("%d", &buscaId);
+            idx = obter_idx_matricula(buscaId);
+            if(idx != -1) {
+                char novoCpf[15];
+                int novoCodCurso, novoCodTurma;
+                
+                printf("Novo CPF do Aluno: "); scanf(" %14[^\n]", novoCpf);
+                if(obter_idx_aluno(novoCpf) != -1) strcpy(tbmatricula[idx].fk_cpf, novoCpf);
+                else { printf("Erro: CPF inexistente. Alteração cancelada.\n"); break; }
+                
+                printf("Novo Cod Curso: "); scanf("%d", &novoCodCurso);
+                if(obter_idx_curso(novoCodCurso) != -1) tbmatricula[idx].fk_codCurso = novoCodCurso;
+                else { printf("Erro: Curso inexistente. Alteração cancelada.\n"); break; }
+                
+                printf("Novo Cod Turma: "); scanf("%d", &novoCodTurma);
+                if(obter_idx_turma(novoCodTurma) != -1) tbmatricula[idx].fk_codTurma = novoCodTurma;
+                else { printf("Erro: Turma inexistente. Alteração cancelada.\n"); break; }
+                
+                printf("Matricula alterada com sucesso!\n");
+            } else { printf("Matricula nao encontrada.\n"); }
+            break;
+    }
+    sleep(2);
+}
+
+void excluir(int sop) {
+    char buscaCpf[15];
+    int buscaId, idx;
+    
+    printf("\n");
+    switch(sop) {
+        case 1:
+            printf("CPF do aluno a excluir: ");
+            scanf(" %14[^\n]", buscaCpf);
+            idx = obter_idx_aluno(buscaCpf);
+            if(idx != -1) {
+                if(matricula_vinculada_aluno(buscaCpf)) {
+                    printf("ERRO: Nao e possivel excluir aluno com matricula vinculada!\n");
+                } else {
+                    for(int i = idx; i < ida - 1; i++) tbaluno[i] = tbaluno[i+1];
+                    ida--;
+                    printf("Aluno excluido com sucesso.\n");
+                }
+            } else { printf("Aluno nao encontrado.\n"); }
+            break;
+        case 2:
+            printf("Codigo do curso a excluir: ");
+            scanf("%d", &buscaId);
+            idx = obter_idx_curso(buscaId);
+            if(idx != -1) {
+                if(matricula_vinculada_curso(buscaId)) {
+                    printf("ERRO: Nao e possivel excluir curso com matricula vinculada!\n");
+                } else {
+                    for(int i = idx; i < idc - 1; i++) tbcurso[i] = tbcurso[i+1];
+                    idc--;
+                    printf("Curso excluido com sucesso.\n");
+                }
+            } else { printf("Curso nao encontrado.\n"); }
+            break;
+        case 3:
+            printf("Codigo da turma a excluir: ");
+            scanf("%d", &buscaId);
+            idx = obter_idx_turma(buscaId);
+            if(idx != -1) {
+                if(matricula_vinculada_turma(buscaId)) {
+                    printf("ERRO: Nao e possivel excluir turma com matricula vinculada!\n");
+                } else {
+                    for(int i = idx; i < idt - 1; i++) tbturma[i] = tbturma[i+1];
+                    idt--;
+                    printf("Turma excluida com sucesso.\n");
+                }
+            } else { printf("Turma nao encontrada.\n"); }
+            break;
+        case 4:
+            printf("RA da matricula a excluir: ");
+            scanf("%d", &buscaId);
+            idx = obter_idx_matricula(buscaId);
+            if(idx != -1) {
+                for(int i = idx; i < idm - 1; i++) tbmatricula[i] = tbmatricula[i+1];
+                idm--;
+                printf("Matricula excluida com sucesso.\n");
+            } else { printf("Matricula nao encontrada.\n"); }
+            break;
+    }
+    sleep(3);
+}
+
+// ============================================================================
+// ORDENAR E IMPRIMIR RELATÓRIOS
+// ============================================================================
+
+void ordenarCrescente(int ident) {
+    struct aluno auxA;
+    if (ident == 1) {
+        for (int i = 0; i < ida - 1; i++) {
+            for (int y = i + 1; y < ida; y++) {
+                if (strcmp(tbaluno[i].nome, tbaluno[y].nome) > 0) {
+                    auxA = tbaluno[i];
+                    tbaluno[i] = tbaluno[y];
+                    tbaluno[y] = auxA;
+                }
+            }
+        }
+    }
+}
+
+void imprimirRelatorio(int ident) {
+    system("clear");
+    printf("=== RELATORIO ===\n\n");
+    switch (ident) {
+        case 1:
+            if (ida == 0) { printf("Nenhum aluno cadastrado.\n"); break; }
+            for (int i = 0; i < ida; i++) {
+                printf("CPF: %s | Nome: %s | Nasc: %s\n", tbaluno[i].pk_cpf, tbaluno[i].nome, tbaluno[i].dtNasc);
+            }
+            break;
+        case 2:
+            if (idc == 0) { printf("Nenhum curso cadastrado.\n"); break; }
+            for (int i = 0; i < idc; i++) {
+                printf("Cod: %d | Nome: %s | CH: %d\n", tbcurso[i].pk_codCurso, tbcurso[i].nome, tbcurso[i].cargaHoraria);
+            }
+            break;
+        case 3:
+            if (idt == 0) { printf("Nenhuma turma cadastrada.\n"); break; }
+            for (int i = 0; i < idt; i++) {
+                printf("Cod: %d | Turma: %s | Vagas: %d | Turno: %s\n", tbturma[i].pk_codTurma, tbturma[i].nomeTurma, tbturma[i].qtdAlunos, tbturma[i].turno);
+            }
+            break;
+        case 4:
+            if (idm == 0) { printf("Nenhuma matricula cadastrada.\n"); break; }
+            for (int i = 0; i < idm; i++) {
+                printf("RA: %d | Aluno CPF: %s | Curso: %d | Turma: %d\n", tbmatricula[i].pk_ra, tbmatricula[i].fk_cpf, tbmatricula[i].fk_codCurso, tbmatricula[i].fk_codTurma);
+            }
+            break;
+    }
+    printf("\nPressione Enter para voltar...");
+    limparBuffer(); getchar();
+}
+
+// ============================================================================
+// MAIN
+// ============================================================================
+int main() {
+    setlocale(LC_ALL, "");
+    do {
+        system("clear");
+        menu();
+        scanf("%d", &op);
+        
+        if (op >= 1 && op <= 4) {
+            system("clear");
+            subMenu();
+            scanf("%d", &sop);
+            if (sop == 5) continue;
+            
+            if(sop >= 1 && sop <= 4) {
+                if (op == 1) cadastrar(sop);
+                else if (op == 2) consultar(sop);
+                else if (op == 3) alterar(sop);
+                else if (op == 4) excluir(sop);
+            } else {
+                printf("Opcao de submenu invalida!\n");
+                sleep(2);
+            }
+        } 
+        else if (op == 5) { // ORDENAR
+            system("clear");
+            printf("1 - CRESCENTE (Alunos)\n2 - RETORNAR\nEscolha: ");
+            scanf("%d", &sop);
+            if (sop == 1) {
+                ordenarCrescente(1);
+                printf("Alunos ordenados por nome com sucesso!\n");
+                sleep(2);
+            }
+        } 
+        else if (op == 6) { // IMPRIMIR RELATÓRIOS
+            system("clear");
+            subMenu();
+            scanf("%d", &sop);
+            if (sop >= 1 && sop <= 4) imprimirRelatorio(sop);
+        }
+    } while (op != 7);
+    
+    system("clear");
+    printf("Sistema finalizado com sucesso!\n");
+    return 0;
+}
